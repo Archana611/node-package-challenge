@@ -1,4 +1,4 @@
-import { access } from "node:fs/promises";
+import { access } from "fs/promises";
 import { APIException } from "./ApiException";
 
 async function isFileAccessable(filePath: string): Promise<void> {
