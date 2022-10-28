@@ -1,18 +1,15 @@
 import { readFile } from 'fs/promises';
 import { APIException } from './ApiException';
 import { isFileAccessable } from './fileUtils';
+import { knapsack, ItemT } from './helper';
 
 const REG_EXP = /^[0-9]{1,3}:(\([0-9]+,(\d+[.]?\d*),[€][0-9]+\))+$/m;
 const MAX_ITEMS = 15;
-const MAX_PACKAGE_WEIGHT = 100;
+const MAX_PACKAGE_WEIGHT = 10000;
 const MAX_ITEM_COST = 100;
 const MAX_ITEM_WEIGHT = 100;
+const DECIMAL_CONVERTION_MULTIPLIER = 100;
 
-interface ItemT {
-    index: number;
-    cost: number;
-    weight: number;
-}
 export class Packer {
     /*
      * @param {string} filePath - Absolute path off file
@@ -27,7 +24,7 @@ export class Packer {
         //remove whitespaces from file.
         const packageLines = fileData.replace(/ /g, '').split('\n');
 
-        let selectedItems = '';
+        let selectedItems: string[] = [];
         packageLines.map((packageLine) => {
             //check content of file is currect.
             if (!REG_EXP.test(packageLine)) {
@@ -35,7 +32,7 @@ export class Packer {
             }
 
             const [maxWeightString, itemsData] = packageLine.split(':');
-            const maxWeight = Number(maxWeightString);
+            const maxWeight = Number(maxWeightString)*DECIMAL_CONVERTION_MULTIPLIER;
 
             if (maxWeight > MAX_PACKAGE_WEIGHT) {
                 throw new APIException(`Maximum weight can not be more then ${MAX_PACKAGE_WEIGHT}`)
@@ -52,31 +49,12 @@ export class Packer {
 
             //remove all items with weight greather then max value
             const data = rawData.filter((data) => data.weight < maxWeight);
-            const selectedItem = this.getOptimalItems(maxWeight, data) || '-';
-            selectedItems += selectedItem + '\n';
+            const selectedItem = knapsack(maxWeight,data) || '-';
+            selectedItems.push(selectedItem);
 
         });
 
-        return selectedItems;
-    }
-
-    private static getOptimalItems(maxWeight: number, data: ItemT[]): string {
-        //sort array based on cost descending order for same cost weight will be in assending order
-        data.sort((a, b) => b.cost - a.cost === 0 ? a.weight - b.weight : b.cost - a.cost);
-
-        let finalItems = '';
-
-        // Looping through all Items
-        for (let i = 0; i < data.length; i++) {
-            // If adding Item won't exceed maximum weight then add it to final item, else move to next item
-            if (data[i].weight <= maxWeight) {
-                maxWeight -= data[i].weight;
-                finalItems += data[i].index + ',';
-            }
-        }
-
-        return finalItems.slice(0, -1);
-
+        return selectedItems.join('\n');
     }
 
     private static getAllItemsOfPackage(items: string[]): ItemT[] {
@@ -90,7 +68,7 @@ export class Packer {
             }
             return {
                 index: Number(index),
-                weight: Number(weight),
+                weight: Number(weight)*100,
                 cost: Number(cost)
             };
         });
